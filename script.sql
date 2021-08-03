@@ -41,7 +41,7 @@ create table themes
     dislikes      integer default 0
 );
 
-comment on table themes is 'Темы: содержат в себе сообщения';
+comment on table themes is 'Темы: содержат имя(переименовать в заголовок), дата создания, лайки/дизлайки,(забыл текст самой темы добавить), и всякие референсы( автор темы, раздел )сообщения';
 
 alter table themes
     owner to postgres;
@@ -66,7 +66,7 @@ create table messages
     date_creation date    default CURRENT_TIMESTAMP
 );
 
-comment on table messages is 'Сообщения: содержат в себе комментарии';
+comment on table messages is 'Сообщения: содержат в себе:почти тоже самое что и с темой только внутри комментарии и баз заголовка';
 
 alter table messages
     owner to postgres;
@@ -74,7 +74,7 @@ alter table messages
 create unique index messages_id_uindex
     on messages (id);
 
-create table comments
+create table comments --та же история что и с сообщениями
 (
     id            serial not null
         constraint comments_pk
@@ -96,8 +96,9 @@ alter table comments
 
 create unique index comments_id_uindex
     on comments (id);
+--______________________________________ ЗДЕСЬ ВЬЮХИ!!! ВОТ ИХ НАДО ПОСМОТРЕТЬ И ПОДУМАТЬ ЧТО ДОБАВИТЬ_________________________________________
 
-create view messages_into_theme(count, theme_id) as
+create view messages_into_theme(count, theme_id) as -- считаем кол-во сообщений в теме (копит ссылки на все темы и считает сколько в них сообщений)
 SELECT (SELECT COALESCE(count(m.*), 0::bigint) AS count) AS count,
        t.id                                              AS theme_id
 FROM themes t
@@ -107,7 +108,7 @@ GROUP BY t.id;
 alter table messages_into_theme
     owner to postgres;
 
-create view comments_into_message(count, message_id) as
+create view comments_into_message(count, message_id) as -- считаем кол-во комментов в сообщении(копит ссылки на все сообщения и считает сколько в них комментов)
 SELECT (SELECT COALESCE(count(c.*), 0::bigint) AS count) AS count,
        m.id                                              AS message_id
 FROM messages m
@@ -117,7 +118,7 @@ GROUP BY m.id;
 alter table comments_into_message
     owner to postgres;
 
-create view user_stats(id, likes, dislikes) as
+create view user_stats(id, likes, dislikes) as -- статы юзеров (копит ссылки на юзеров и ведет подсчёт всех лайков/ дизлайков )
 SELECT users.id,
        ((SELECT COALESCE(sum(t.likes), 0::bigint) AS "coalesce")) +
        ((SELECT COALESCE(sum(m.likes), 0::bigint) AS "coalesce"))    AS likes,
