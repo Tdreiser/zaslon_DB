@@ -19,6 +19,8 @@ create table sections
     name char(50)
 );
 
+comment on table sections is 'Разделы, возможно будут создаваться только админами';
+
 alter table sections
     owner to postgres;
 
@@ -38,6 +40,8 @@ create table themes
     likes         integer default 0,
     dislikes      integer default 0
 );
+
+comment on table themes is 'Темы: содержат в себе сообщения';
 
 alter table themes
     owner to postgres;
@@ -61,6 +65,8 @@ create table messages
     dislikes      integer default 0,
     date_creation date    default CURRENT_TIMESTAMP
 );
+
+comment on table messages is 'Сообщения: содержат в себе комментарии';
 
 alter table messages
     owner to postgres;
@@ -92,49 +98,37 @@ create unique index comments_id_uindex
     on comments (id);
 
 create view messages_into_theme(count, theme_id) as
-SELECT count(m.*) AS count,
-       m.theme_id
-FROM messages m
-         LEFT JOIN themes t ON m.theme_id = t.id
-GROUP BY m.theme_id;
+SELECT (SELECT COALESCE(count(m.*), 0::bigint) AS count) AS count,
+       t.id                                              AS theme_id
+FROM themes t
+         LEFT JOIN messages m ON m.theme_id = t.id
+GROUP BY t.id;
 
 alter table messages_into_theme
     owner to postgres;
 
 create view comments_into_message(count, message_id) as
-SELECT count(c.*) AS count,
-       c.message_id
-FROM comments c
-         LEFT JOIN messages m ON m.id = c.message_id
-GROUP BY c.message_id;
+SELECT (SELECT COALESCE(count(c.*), 0::bigint) AS count) AS count,
+       m.id                                              AS message_id
+FROM messages m
+         LEFT JOIN comments c ON m.id = c.message_id
+GROUP BY m.id;
 
 alter table comments_into_message
     owner to postgres;
 
-create view user_likes(id, likes, dislikes) as
-SELECT u.id,
-       ((SELECT sum(m.likes) AS sum)) + ((SELECT sum(c.likes) / 3 AS sum2)) +
-       ((SELECT sum(t.likes) / 4 AS sum5))    AS likes,
-       ((SELECT sum(m.dislikes) AS sum3)) + ((SELECT sum(c.dislikes) / 3 AS sum4)) +
-       ((SELECT sum(t.dislikes) / 4 AS sum6)) AS dislikes
-FROM users u
-         JOIN messages m ON u.id = m.user_id
-         JOIN comments c ON u.id = c.user_id
-         JOIN themes t ON u.id = t.user_id
-GROUP BY u.id;
-
-alter table user_likes
-    owner to postgres;
-
-create view view_name(id, likes) as
+create view user_stats(id, likes, dislikes) as
 SELECT users.id,
-       (SELECT COALESCE(sum(t.likes), 0::bigint) AS "coalesce") AS likes
+       ((SELECT COALESCE(sum(t.likes), 0::bigint) AS "coalesce")) +
+       ((SELECT COALESCE(sum(m.likes), 0::bigint) AS "coalesce"))    AS likes,
+       ((SELECT COALESCE(sum(t.dislikes), 0::bigint) AS "coalesce")) +
+       ((SELECT COALESCE(sum(m.dislikes), 0::bigint) AS "coalesce")) AS dislikes
 FROM users
-         JOIN messages m ON users.id = m.user_id
-         JOIN themes t ON users.id = t.user_id
+         LEFT JOIN messages m ON users.id = m.user_id
+         LEFT JOIN themes t ON users.id = t.user_id
 GROUP BY users.id;
 
-alter table view_name
+alter table user_stats
     owner to postgres;
 
 
